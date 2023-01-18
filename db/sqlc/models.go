@@ -5,18 +5,19 @@
 package db
 
 import (
-	"database/sql"
+	"time"
 )
 
 type User struct {
-	ID             string         `json:"id"`
-	Username       sql.NullString `json:"username"`
-	FirstName      sql.NullString `json:"first_name"`
-	LastName       sql.NullString `json:"last_name"`
-	HashedPassword sql.NullString `json:"hashed_password"`
-	Email          sql.NullString `json:"email"`
-	UserType       sql.NullInt32  `json:"user_type"`
-	Active         sql.NullBool   `json:"active"`
-	CreatedAt      sql.NullTime   `json:"created_at"`
-	LastAccessedAt sql.NullTime   `json:"last_accessed_at"`
+	ID                string    `json:"id"`
+	Username          string    `json:"username"`
+	FirstName         string    `json:"first_name"`
+	LastName          string    `json:"last_name"`
+	HashedPassword    string    `json:"hashed_password"`
+	Email             string    `json:"email"`
+	UserType          int32     `json:"user_type"`
+	Active            int32     `json:"active"`
+	CreatedAt         time.Time `json:"created_at"`
+	LastAccessedAt    time.Time `json:"last_accessed_at"`
+	PasswordChangedAt time.Time `json:"password_changed_at"`
 }

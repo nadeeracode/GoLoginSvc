@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"fmt"
 	"testing"
 	"time"
 
@@ -35,7 +34,5 @@ func createRandomUser(t *testing.T) User {
 }
 
 func TestCreateUser(t *testing.T) {
-	fmt.Println(">> before:", "TTTT")
 	createRandomUser(t)
-
 }

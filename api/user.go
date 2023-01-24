@@ -43,7 +43,6 @@ func (server *Server) createUser(ctx *gin.Context) {
 		ctx.JSON(http.StatusBadRequest, errorResponse(err))
 		return
 	}
-
 	hashedPassword, err := util.HashPassword(req.Password)
 	if err != nil {
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
@@ -62,7 +61,6 @@ func (server *Server) createUser(ctx *gin.Context) {
 		LastAccessedAt:    time.Now(),
 		PasswordChangedAt: time.Now(),
 	}
-
 	user, err := server.store.CreateUser(ctx, arg)
 	if err != nil {
 		if pqErr, ok := err.(*pq.Error); ok {
@@ -76,7 +74,6 @@ func (server *Server) createUser(ctx *gin.Context) {
 		ctx.JSON(http.StatusInternalServerError, errorResponse(err))
 		return
 	}
-
 	rsp := newUserResponse(user)
 	ctx.JSON(http.StatusOK, rsp)
 }

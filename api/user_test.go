@@ -15,6 +15,7 @@ import (
 	"github.com/lib/pq"
 	mockdb "github.com/nadeeracode/GoLoginSvc/db/mock"
 	db "github.com/nadeeracode/GoLoginSvc/db/sqlc"
+	"github.com/nadeeracode/GoLoginSvc/token"
 	"github.com/nadeeracode/GoLoginSvc/util"
 
 	"github.com/gin-gonic/gin"
@@ -58,8 +59,9 @@ func TestCreateUserAPI(t *testing.T) {
 	testCases := []struct {
 		name          string
 		body          gin.H
+		setupAuth     func(t *testing.T, request *http.Request, tokenMaker token.Maker)
 		buildStubs    func(store *mockdb.MockStore)
-		checkResponse func(recorder *httptest.ResponseRecorder)
+		checkResponse func(t *testing.T, recorder *httptest.ResponseRecorder)
 	}{
 		{
 			name: "OK",
@@ -69,6 +71,9 @@ func TestCreateUserAPI(t *testing.T) {
 				"first_name": user.FirstName,
 				"last_name":  user.LastName,
 				"email":      user.Email,
+			},
+			setupAuth: func(t *testing.T, request *http.Request, tokenMaker token.Maker) {
+				addAuthorization(t, request, tokenMaker, authorizationTypeBearer, user.Username, time.Minute)
 			},
 			buildStubs: func(store *mockdb.MockStore) {
 				arg := db.CreateUserParams{
@@ -88,7 +93,7 @@ func TestCreateUserAPI(t *testing.T) {
 					Times(1).
 					Return(user, nil)
 			},
-			checkResponse: func(recorder *httptest.ResponseRecorder) {
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
 				require.Equal(t, http.StatusOK, recorder.Code)
 				requierBodyMatchUser(t, recorder.Body, user)
 			},
@@ -102,13 +107,16 @@ func TestCreateUserAPI(t *testing.T) {
 				"last_name":  user.LastName,
 				"email":      user.Email,
 			},
+			setupAuth: func(t *testing.T, request *http.Request, tokenMaker token.Maker) {
+				addAuthorization(t, request, tokenMaker, authorizationTypeBearer, user.Username, time.Minute)
+			},
 			buildStubs: func(store *mockdb.MockStore) {
 				store.EXPECT().
 					CreateUser(gomock.Any(), gomock.Any()).
 					Times(1).
 					Return(db.User{}, sql.ErrConnDone)
 			},
-			checkResponse: func(recorder *httptest.ResponseRecorder) {
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
 				require.Equal(t, http.StatusInternalServerError, recorder.Code)
 			},
 		},
@@ -121,13 +129,16 @@ func TestCreateUserAPI(t *testing.T) {
 				"last_name":  user.LastName,
 				"email":      user.Email,
 			},
+			setupAuth: func(t *testing.T, request *http.Request, tokenMaker token.Maker) {
+				addAuthorization(t, request, tokenMaker, authorizationTypeBearer, user.Username, time.Minute)
+			},
 			buildStubs: func(store *mockdb.MockStore) {
 				store.EXPECT().
 					CreateUser(gomock.Any(), gomock.Any()).
 					Times(1).
 					Return(db.User{}, &pq.Error{Code: "23505"})
 			},
-			checkResponse: func(recorder *httptest.ResponseRecorder) {
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
 				require.Equal(t, http.StatusForbidden, recorder.Code)
 			},
 		},
@@ -140,12 +151,15 @@ func TestCreateUserAPI(t *testing.T) {
 				"last_name":  user.LastName,
 				"Email":      user.Email,
 			},
+			setupAuth: func(t *testing.T, request *http.Request, tokenMaker token.Maker) {
+				addAuthorization(t, request, tokenMaker, authorizationTypeBearer, user.Username, time.Minute)
+			},
 			buildStubs: func(store *mockdb.MockStore) {
 				store.EXPECT().
 					CreateUser(gomock.Any(), gomock.Any()).
 					Times(0)
 			},
-			checkResponse: func(recorder *httptest.ResponseRecorder) {
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
 				require.Equal(t, http.StatusBadRequest, recorder.Code)
 			},
 		},
@@ -158,10 +172,13 @@ func TestCreateUserAPI(t *testing.T) {
 				"last_name":  user.LastName,
 				"email":      "Invalid-email",
 			},
+			setupAuth: func(t *testing.T, request *http.Request, tokenMaker token.Maker) {
+				addAuthorization(t, request, tokenMaker, authorizationTypeBearer, user.Username, time.Minute)
+			},
 			buildStubs: func(store *mockdb.MockStore) {
 				store.EXPECT().CreateUser(gomock.Any(), gomock.Any()).Times(0)
 			},
-			checkResponse: func(recorder *httptest.ResponseRecorder) {
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
 				require.Equal(t, http.StatusBadRequest, recorder.Code)
 			},
 		},
@@ -174,10 +191,13 @@ func TestCreateUserAPI(t *testing.T) {
 				"last_name":  user.LastName,
 				"email":      user.Email,
 			},
+			setupAuth: func(t *testing.T, request *http.Request, tokenMaker token.Maker) {
+				addAuthorization(t, request, tokenMaker, authorizationTypeBearer, user.Username, time.Minute)
+			},
 			buildStubs: func(store *mockdb.MockStore) {
 				store.EXPECT().CreateUser(gomock.Any(), gomock.Any()).Times(0)
 			},
-			checkResponse: func(recorder *httptest.ResponseRecorder) {
+			checkResponse: func(t *testing.T, recorder *httptest.ResponseRecorder) {
 				require.Equal(t, http.StatusBadRequest, recorder.Code)
 			},
 		},
@@ -193,12 +213,14 @@ func TestCreateUserAPI(t *testing.T) {
 			store := mockdb.NewMockStore(ctrl)
 			//build stub
 			tc.buildStubs(store)
-			config := util.Config{
-				TokenSymmetricKey:   util.RandomString(32),
-				AccessTokenDuration: time.Minute,
-			}
 
-			server, err := NewServer(config, store)
+			// config := util.Config{
+			// 	TokenSymmetricKey:   util.RandomString(32),
+			// 	AccessTokenDuration: time.Minute,
+			// }
+
+			server := newTestServer(t, store)
+			//server, _ := NewServer(config, store)
 			//Start test servere and send request
 			//server := newTestServer(t, store)
 			recorder := httptest.NewRecorder()
@@ -211,9 +233,10 @@ func TestCreateUserAPI(t *testing.T) {
 			request, err := http.NewRequest(http.MethodPost, url, bytes.NewReader(data))
 			require.NoError(t, err)
 
+			tc.setupAuth(t, request, server.tokenMaker)
 			server.router.ServeHTTP(recorder, request)
 			//check response
-			tc.checkResponse(recorder)
+			tc.checkResponse(t, recorder)
 		})
 	}
 }
